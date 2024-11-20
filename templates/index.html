@@ -1,61 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexagon Tile Game</title>
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Last one standing</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
         }
-        #board {
-            display: grid;
-            grid-template-columns: repeat(10, 60px);
-            grid-template-rows: repeat(10, 52px);
-            gap: 2px;
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 0;
+    margin: 50px auto;
+    width: 480px;
+    height: 480px;
         }
-        .hex {
-            width: 60px;
-            height: 52px;
-            background-color: lightgray;
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-            transition: background-color 0.2s;
+.cell {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: pink;
+        }
+.cell:nth-child(odd) {
+    background-color: black;
+        }
+.cell.white {
+            background-color: #fff;
+        }
+        .cell.red {
+            background-color: #000;
+        }
+        .piece {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: white;
+            position: relative;
+        }
+        .piece.white_crown {
+            background-color: gold;
+        }
+        .piece.red_crown {
+            background-color: gold;
+        }
+        .piece.white {
+            background-color: white;
+        }
+        .piece.red {
+            background-color: red;
         }
     </style>
 </head>
 <body>
+    <h1>Last one Standing</h1>
+    <h3>Player Turn: <span id="turn"></span></h3>
+    <div class="board" id="board"></div>
+    <script>
+        let boardData = [];
+        let selectedPiece = null;
 
-<div id="board">
-    <!-- Hexagonal tiles will be added here on clicks -->
-</div>
+        // Fetch the initial game state from the server
+        fetch('/get_game_state')
+            .then(response => response.json())
+            .then(data => {
+                boardData = data.board;
+                updateBoard(data);
+            });
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function() {
-        // Create an empty board of hex tiles
-        for (let i = 0; i < 100; i++) {
-            const hexTile = $('<div class="hex"></div>');
-            hexTile.data("clicked", false);  // Track if a tile has been clicked
-            $('#board').append(hexTile);
+        function updateBoard(data) {
+            const boardDiv = document.getElementById('board');
+            boardDiv.innerHTML = '';
+            data.board.forEach((row, rowIndex) => {
+                row.forEach((cell, colIndex) => {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    if ((rowIndex + colIndex) % 2 === 0) {
+                        cellDiv.style.backgroundColor = 'pink';
+                    } else {
+                        cellDiv.style.backgroundColor = 'black';
+                    }
+
+                    if (cell) {
+                        const pieceDiv = document.createElement('div');
+                        pieceDiv.classList.add('piece', cell);
+                        if (cell.includes("crown")) {
+                            pieceDiv.classList.add(cell);
+                        }
+                        pieceDiv.onclick = () => handlePieceClick(rowIndex, colIndex, cell);
+                        cellDiv.appendChild(pieceDiv);
+                    }
+                    boardDiv.appendChild(cellDiv);
+                });
+            });
+
+            document.getElementById('turn').innerText = data.turn.charAt(0).toUpperCase() + data.turn.slice(1);
         }
 
-        // Add color to hex tiles on click
-        $('#board').on('click', '.hex', function() {
-            if (!$(this).data("clicked")) {  // Only allow one click per tile
-                $.getJSON('/add_tile', function(data) {
-                    $(this).css('background-color', data.color);
-                    $(this).data("clicked", true);  // Mark as clicked
-                }.bind(this));
+        function handlePieceClick(rowIndex, colIndex, piece) {
+            if (selectedPiece) {
+                // Move selected piece
+                fetch('/move_piece', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        start: selectedPiece,
+                        end: [rowIndex, colIndex]
+                    })
+                })
+                .then(response => response.json())
+                .then(data => updateBoard(data));
+                selectedPiece = null;
+            } else {
+                // Select piece
+                selectedPiece = [rowIndex, colIndex];
             }
-        });
-    });
-</script>
-
+        }
+    </script>
 </body>
 </html>
